@@ -10,7 +10,7 @@ class User(AbstractUser):
     """Пользователь"""
 
     email = models.EmailField(unique=True, verbose_name='почта')
-    phone_number = models.CharField(max_length=15, unique=True, default='', verbose_name='номер телефона')
+    phone_number = models.CharField(max_length=15, unique=True, default='null', verbose_name='номер телефона')
     country = models.CharField(max_length=100, **NULLABLE, verbose_name='страна')
     city = models.CharField(max_length=150, **NULLABLE, verbose_name='город')
     is_active = models.BooleanField(default=False, verbose_name='активный')
