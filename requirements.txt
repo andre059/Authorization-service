@@ -3,3 +3,4 @@ psycopg2-binary
 psycopg2
 pillow
 djangorestframework
+getenv
