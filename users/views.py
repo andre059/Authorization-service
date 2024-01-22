@@ -53,7 +53,7 @@ class PhoneAuthorizationView(APIView):
         stored_code = cache.get(phone_number)
         print("Сгенерированный код для номера телефона {}: {}".format(phone_number, stored_code))
 
-        if stored_code == authorization_code:
+        if stored_code and stored_code == authorization_code:
             # Действительный код, перейдите к аутентификации
             print(stored_code, authorization_code)
             return Response({'success': 'Номер телефона подтвержден. Пользователь прошел аутентификацию.'},
