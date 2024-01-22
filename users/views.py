@@ -1,4 +1,7 @@
-from django.shortcuts import render
+import random
+import time
+
+from django.core.cache import cache
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -17,31 +20,74 @@ class UserViewSet(viewsets.ModelViewSet):
     # permission_classes = [IsAuthenticated]
 
 
-class RequestAuthorizationCode(APIView):
-    """Обрабатывает запрос на получение кода авторизации."""
+class PhoneAuthorizationView(APIView):
+    """Авторизация по телефону"""
 
-    def post(self, request):
-        """
-        Обрабатывает POST-запрос, генерирует и отправляет код авторизации.
-        Args:
-        - request: Входной объект запроса.
-        Returns:
-        - Response: Ответ с данными о статусе операции.
-        """
+    def post(self, request, format='json'):
+        """обработка запроса на ввод номера телефона и отправки кода аутентификации"""
 
         phone_number = request.data.get('phone_number')
 
-        if phone_number:
-            user, created = User.objects.get_or_create(phone_number=phone_number)
+        if not phone_number:
+            return Response({'error': 'Требуется номер телефона'}, status=status.HTTP_400_BAD_REQUEST)
 
-            if created or not user.authorization_code:
-                user.authorization_code = generate_authorization_code()
-                user.save()
-                # Отправка кода, через сторонний сервис для отправки SMS
-                return Response({'detail': 'Код авторизации был отправлен на номер телефона'},
-                                status=status.HTTP_200_OK)
+        # Имитация отправки 4-значного кода аутентификации с задержкой в 1-2 секунды
+        authorization_code = random.randint(1000, 9999)
+        time.sleep(random.uniform(1, 2))
+
+        cache.set(phone_number, str(authorization_code), timeout=120)  # Сохранение кода в кэше
+
+        print(authorization_code)
+        return Response({'success': 'Номер телефона подтвержден. Отправлен код аутентификации.'},
+                        status=status.HTTP_200_OK)
+
+    def put(self, request, format='json'):
+        """обработка запроса на ввод кода аутентификации"""
+
+        phone_number = request.data.get('phone_number')
+        authorization_code = request.data.get('authorization_code')
+
+        if not phone_number or not authorization_code:
+            return Response({'error': 'Требуется номер телефона и код'}, status=status.HTTP_400_BAD_REQUEST)
+
+        stored_code = cache.get(phone_number)
+        print("Сгенерированный код для номера телефона {}: {}".format(phone_number, stored_code))
+
+        if stored_code == authorization_code:
+            # Действительный код, перейдите к аутентификации
+            print(stored_code, authorization_code)
+            return Response({'success': 'Номер телефона подтвержден. Пользователь прошел аутентификацию.'},
+                            status=status.HTTP_200_OK)
         else:
-            return Response({'detail': 'Не указан номер телефона'}, status=status.HTTP_400_BAD_REQUEST)
+            print(stored_code, authorization_code)
+            return Response({'error': 'Недействительный или просроченный код'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# class RequestAuthorizationCode(APIView):
+#     """Обрабатывает запрос на получение кода авторизации."""
+#
+#     def post(self, request):
+#         """
+#         Обрабатывает POST-запрос, генерирует и отправляет код авторизации.
+#         Args:
+#         - request: Входной объект запроса.
+#         Returns:
+#         - Response: Ответ с данными о статусе операции.
+#         """
+#
+#         phone_number = request.data.get('phone_number')
+#
+#         if phone_number:
+#             user, created = User.objects.get_or_create(phone_number=phone_number)
+#
+#             if created or not user.authorization_code:
+#                 user.authorization_code = generate_authorization_code()
+#                 user.save()
+#                 # Отправка кода, через сторонний сервис для отправки SMS
+#                 return Response({'detail': 'Код авторизации был отправлен на номер телефона'},
+#                                 status=status.HTTP_200_OK)
+#         else:
+#             return Response({'detail': 'Не указан номер телефона'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserProfile(APIView):
