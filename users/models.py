@@ -27,6 +27,8 @@ class User(AbstractUser):
     referred_by = models.ForeignKey('self', on_delete=models.CASCADE, **NULLABLE, related_name='referrals',
                                     verbose_name='кто пригласил текущего пользователя')
 
+    is_authorized = models.BooleanField(default=False, verbose_name='Пользователь авторизован')
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 

@@ -23,43 +23,48 @@ class UserViewSet(viewsets.ModelViewSet):
 class PhoneAuthorizationView(APIView):
     """Авторизация по телефону"""
 
-    def post(self, request, format='json'):
+    def post(self, request):
         """обработка запроса на ввод номера телефона и отправки кода аутентификации"""
 
         phone_number = request.data.get('phone_number')
+        try:
+            user = User.objects.get(phone_number=phone_number)
+            if user.authorization_code:  # Если есть код, значит это второй запрос
+                return Response({"detail": "Введите код авторизации"}, status=status.HTTP_200_OK)
+            else:  # Пользователь уже существует, но кода нет - отправляем новый код
+                authorization_code = ''.join(random.choices('0123456789', k=4))
+                user.authorization_code = authorization_code
+                user.save()
+                return Response({"detail": "Код авторизации отправлен", "phone_number": phone_number,
+                                 "authorization_code": authorization_code}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:  # Пользователь новый
+            user = User(phone_number=phone_number)
+            authorization_code = ''.join(random.choices('0123456789', k=4))
+            user.authorization_code = authorization_code
+            user.save()
+            return Response({"detail": "Код авторизации отправлен", "phone_number": phone_number,
+                             "authorization_code": authorization_code}, status=status.HTTP_200_OK)
 
-        if not phone_number:
-            return Response({'error': 'Требуется номер телефона'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Имитация отправки 4-значного кода аутентификации с задержкой в 1-2 секунды
-        authorization_code = random.randint(1000, 9999)
-        time.sleep(random.uniform(1, 2))
-
-        cache.set(phone_number, str(authorization_code), timeout=120)  # Сохранение кода в кэше
-
-        print(authorization_code)
-        return Response({'success': 'Номер телефона подтвержден. Отправлен код аутентификации.'},
-                        status=status.HTTP_200_OK)
-
-    def put(self, request, format='json'):
+    def put(self, request):
         """обработка запроса на ввод кода аутентификации"""
 
-        phone_number = request.data.get('phone_number')
-        authorization_code = request.data.get('authorization_code')
+        phone_number = str(request.data.get('phone_number'))
+        authorization_code = str(request.data.get('authorization_code'))
 
         if not phone_number or not authorization_code:
             return Response({'error': 'Требуется номер телефона и код'}, status=status.HTTP_400_BAD_REQUEST)
 
-        stored_code = cache.get(phone_number)
-        print("Сгенерированный код для номера телефона {}: {}".format(phone_number, stored_code))
-
-        if stored_code and stored_code == authorization_code:
-            # Действительный код, перейдите к аутентификации
-            print(stored_code, authorization_code)
-            return Response({'success': 'Номер телефона подтвержден. Пользователь прошел аутентификацию.'},
-                            status=status.HTTP_200_OK)
-        else:
-            print(stored_code, authorization_code)
+        try:
+            user = User.objects.get(phone_number=phone_number, authorization_code=authorization_code)
+            if user.authorization_code == authorization_code:  # Проверяем соответствие кода
+                # Действительный код, обозначение пользователя как авторизованного
+                user.is_authorized = True
+                user.authorization_code = None  # Очищаем код
+                user.save()
+                return Response({'success': 'Пользователь авторизован'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'Недействительный код'}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
             return Response({'error': 'Недействительный или просроченный код'}, status=status.HTTP_400_BAD_REQUEST)
 
 
