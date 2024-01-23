@@ -1,15 +1,11 @@
 import random
-import time
-
-from django.core.cache import cache
 from rest_framework import viewsets, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from users.models import User
+from users.permissions import IsVerifiedUser
 from users.serliazers import UserSerializers
-from users.services import generate_authorization_code
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -17,7 +13,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     serializer_class = UserSerializers
     queryset = User.objects.all()
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedUser]
 
 
 class PhoneAuthorizationView(APIView):
@@ -98,27 +94,31 @@ class PhoneAuthorizationView(APIView):
 class UserProfile(APIView):
     """Предоставляет детали профиля пользователя."""
 
+    serializer_class = UserSerializers
+    permission_classes = [IsVerifiedUser]  # Требуем аутентификацию для доступа к профилю
+
     def get(self, request):
         """
         Обрабатывает GET-запрос для получения деталей профиля пользователя.
-
         Args:
         - request: Входной объект запроса.
-
         Returns:
         - Response: Ответ с деталями профиля пользователя.
         """
 
         user = request.user
-        data = {
-            'phone_number': user.phone_number,
-            'country': user.country,
-            'city': user.city,
-            'date_of_birth': user.date_of_birth,
-            'avatar': user.avatar.url if user.avatar else None,
-            'referral_code': user.referral_code
-        }
-        return Response(data, status=status.HTTP_200_OK)
+        if user.is_authenticated:  # Проверяем, авторизован ли пользователь
+            data = {
+                'phone_number': user.phone_number,
+                'country': user.country,
+                'city': user.city,
+                'date_of_birth': user.date_of_birth,
+                'avatar': user.avatar.url if user.avatar else None,
+                'referral_code': user.referral_code
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class CheckReferralCode(APIView):
