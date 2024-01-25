@@ -13,12 +13,12 @@ from users.permissions import IsVerifiedUser
 from users.serliazers import UserSerializers
 
 
-# class UserViewSet(viewsets.ModelViewSet):
-#     """класс для вывода списка и информации по одному объекту"""
-#
-#     serializer_class = UserSerializers
-#     queryset = User.objects.all()
-#     permission_classes = [IsVerifiedUser]
+class UserViewSet(viewsets.ModelViewSet):
+    """класс для вывода списка и информации по одному объекту"""
+
+    serializer_class = UserSerializers
+    queryset = User.objects.all()
+    permission_classes = [IsVerifiedUser]
 
 
 # class MyTokenObtainPairView(TokenObtainPairView):
