@@ -1,8 +1,11 @@
 import random
+import uuid
 
-from django.views.decorators.csrf import ensure_csrf_cookie
-from rest_framework import viewsets, status
-from rest_framework.decorators import permission_classes, api_view, action
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.mixins import UserPassesTestMixin
+from rest_framework import viewsets, status, generics
+from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,23 +13,17 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from users.models import User
 from users.permissions import IsVerifiedUser
-from users.serliazers import UserSerializers
+from users.serliazers import UserSerializers, PhoneNumberAndCodeTokenObtainPairSerializer
 
 
-class UserViewSet(viewsets.ModelViewSet):
-    """класс для вывода списка и информации по одному объекту"""
-
-    serializer_class = UserSerializers
-    queryset = User.objects.all()
-    permission_classes = [IsVerifiedUser]
-
-
-# class MyTokenObtainPairView(TokenObtainPairView):
-#     serializer_class = MyTokenObtainPairSerializer
+# class UserViewSet(viewsets.ModelViewSet):
+#     """класс для вывода списка и информации по одному объекту"""
+#
+#     serializer_class = UserSerializers
+#     queryset = User.objects.all()
+#     permission_classes = [IsVerifiedUser]
 
 
-# @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
 class PhoneAuthorizationView(APIView):
     """Авторизация по телефону"""
 
@@ -45,7 +42,8 @@ class PhoneAuthorizationView(APIView):
                 return Response({"detail": "Код авторизации отправлен", "phone_number": phone_number,
                                  "authorization_code": authorization_code}, status=status.HTTP_200_OK)
         except User.DoesNotExist:  # Пользователь новый
-            user = User(phone_number=phone_number)
+            temp_email = f"{phone_number}-{uuid.uuid4()}@temp.com"  # временная почта
+            user = User(phone_number=phone_number, email=temp_email)
             authorization_code = ''.join(random.choices('0123456789', k=4))
             user.authorization_code = authorization_code
             user.save()
@@ -66,7 +64,7 @@ class PhoneAuthorizationView(APIView):
             if user.authorization_code == authorization_code:  # Проверяем соответствие кода
                 # Действительный код, обозначение пользователя как авторизованного
                 user.is_authorized = True
-                user.authorization_code = None  # Очищаем код
+                user.password = authorization_code  # сохраняем код в пароле
                 user.save()
                 return Response({'success': 'Пользователь авторизован'}, status=status.HTTP_200_OK)
             else:
@@ -75,49 +73,88 @@ class PhoneAuthorizationView(APIView):
             return Response({'error': 'Недействительный или просроченный код'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class CreateUserView(APIView):
-    def post(self, request, format='json'):
-        serializer = UserSerializers(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            if user:
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class PhoneNumberAndCodeTokenObtainPairView(TokenObtainPairView):
+    serializer_class = PhoneNumberAndCodeTokenObtainPairSerializer
 
 
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-class UserProfile(APIView):
-    """Предоставляет детали профиля пользователя."""
+class RefreshTokenView(APIView):
+    def post(self, request):
+        old_token_key = request.data['old_token_key']
+        try:
+            old_token = Token.objects.get(key=old_token_key)
+            new_token = Token.objects.create(user=old_token.user)
+            return Response({'new_token': new_token.key})
+        except Token.DoesNotExist:
+            return Response({'error': 'Old token does not exist'}, status=status.HTTP_400_BAD_REQUEST)
 
+
+class ChangePasswordView(APIView):
+    def post(self, request):
+        form = PasswordChangeForm(request.user, request.data)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)  # Обновление хэша сессии
+            return Response({"detail": "Пароль успешно изменен"})
+        return Response(form.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserRetrieveAPIView(UserPassesTestMixin, generics.RetrieveAPIView):
+    queryset = User.objects.all()
     serializer_class = UserSerializers
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedUser]
 
-    def get(self, request, pk):
-        """
-        Обрабатывает GET-запрос для получения деталей профиля пользователя.
-        Args:
-        - request: Входной объект запроса.
-        Returns:
-        - Response: Ответ с деталями профиля пользователя.
-        """
+    def test_func(self):
+        return self.request.user.pk == self.kwargs['pk'] or self.request.user.is_superuser
 
-        # is_authenticated = request.data.get('is_authenticated')
-        # user = User.objects.get(is_authenticated=is_authenticated)
-        user = request.user
-        if user.is_authenticated:  # Проверяем, авторизован ли пользователь
-            data = {
-                'phone_number': user.phone_number,
-                'country': user.country,
-                'city': user.city,
-                'date_of_birth': user.date_of_birth,
-                'avatar': user.avatar.url if user.avatar else None,
-                'referral_code': user.referral_code,
-                'is_authorized': user.is_authorized
-            }
-            return Response(data, status=status.HTTP_200_OK)
-        else:
-            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
+
+class UserUpdateAPIView(UserPassesTestMixin, generics.UpdateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializers
+    permission_classes = [IsVerifiedUser]
+
+    def test_func(self):
+        return self.request.user.pk == self.kwargs['pk'] or self.request.user.is_superuser
+
+
+class UserDestroyAPIView(UserPassesTestMixin, generics.DestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializers
+    permission_classes = [IsVerifiedUser]
+
+    def test_func(self):
+        return self.request.user.pk == self.kwargs['pk'] or self.request.user.is_superuser
+
+
+# class UserProfile(APIView):
+#     """Предоставляет детали профиля пользователя."""
+#
+#     serializer_class = UserSerializers
+#     permission_classes = [IsAuthenticated]
+#
+#     def get(self, request, pk):
+#         """
+#         Обрабатывает GET-запрос для получения деталей профиля пользователя.
+#         Args:
+#         - request: Входной объект запроса.
+#         Returns:
+#         - Response: Ответ с деталями профиля пользователя.
+#         """
+#
+#         try:
+#             user = User.objects.get(id=pk)  # Получаем пользователя по ID
+#         except User.DoesNotExist:
+#             return Response({'error': 'Пользователь не существует'}, status=status.HTTP_404_NOT_FOUND)
+#
+#         data = {
+#             'phone_number': user.phone_number,
+#             'country': user.country,
+#             'city': user.city,
+#             'date_of_birth': user.date_of_birth,
+#             'avatar': user.avatar.url if user.avatar else None,
+#             'referral_code': user.referral_code,
+#             'is_authorized': user.is_authorized
+#         }
+#         return Response(data, status=status.HTTP_200_OK)
 
 
 class CheckReferralCode(APIView):
@@ -164,57 +201,3 @@ class UsersReferredByCurrentUser(APIView):
         referred_users = User.objects.filter(referred_by=user)
         data = [{'username': user.username, 'id': user.id} for user in referred_users]
         return Response(data, status=status.HTTP_200_OK)
-
-
-
-# try:
-        #     user = User.objects.get(pk=pk)
-        #     serializer = UserSerializers(user)
-        #     if not user.is_authorized:
-        #         return Response({'error': 'Пользователь не прошел проверку верификации'}, status=status.HTTP_400_BAD_REQUEST)
-        #     return Response(serializer.data, status=status.HTTP_200_OK)
-        # except User.DoesNotExist:
-        #     return Response({'error': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Получаем токен из заголовков запроса
-        # auth_header = request.META.get('HTTP_AUTHORIZATION')
-        # if auth_header:
-        #     # Извлекаем токен из заголовка
-        #     try:
-        #         auth_token = auth_header.split(' ')[1]
-        #         # Далее обрабатываем токен и получаем пользователя
-        #         # ...
-        #         # Ваша логика обработки токена и получения деталей профиля пользователя
-        #         # ...
-        #         return Response({'details': 'Детали профиля пользователя'}, status=200)
-        #     except IndexError:
-        #         return Response({'error': 'Не передан токен аутентификации'}, status=400)
-        # else:
-        #     return Response({'error': 'Требуется токен аутентификации'}, status=401)
-
-
-# class RequestAuthorizationCode(APIView):
-#     """Обрабатывает запрос на получение кода авторизации."""
-#
-#     def post(self, request):
-#         """
-#         Обрабатывает POST-запрос, генерирует и отправляет код авторизации.
-#         Args:
-#         - request: Входной объект запроса.
-#         Returns:
-#         - Response: Ответ с данными о статусе операции.
-#         """
-#
-#         phone_number = request.data.get('phone_number')
-#
-#         if phone_number:
-#             user, created = User.objects.get_or_create(phone_number=phone_number)
-#
-#             if created or not user.authorization_code:
-#                 user.authorization_code = generate_authorization_code()
-#                 user.save()
-#                 # Отправка кода, через сторонний сервис для отправки SMS
-#                 return Response({'detail': 'Код авторизации был отправлен на номер телефона'},
-#                                 status=status.HTTP_200_OK)
-#         else:
-#             return Response({'detail': 'Не указан номер телефона'}, status=status.HTTP_400_BAD_REQUEST)
