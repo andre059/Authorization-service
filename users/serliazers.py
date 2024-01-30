@@ -13,24 +13,22 @@ class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['email', 'phone_number', 'password', 'country', 'city', 'is_active', 'date_of_birth', 'avatar',
-                  'authorization_code', 'referral_code', 'referred_by', 'is_authorized']
+                  'authorization_code', 'referral_code', 'referred_by', 'is_authorized', 'is_authenticated']
 
 
 class PhoneNumberAndCodeTokenObtainPairSerializer(TokenObtainPairSerializer):
     phone_number = serializers.CharField(required=True)
-    authorization_code = serializers.CharField(required=True)
 
     def validate(self, attrs):
         phone_number = attrs.get('phone_number')
-        authorization_code = attrs.get('authorization_code')
 
-        if not phone_number or not authorization_code:
-            raise serializers.ValidationError("No phone number or authorization code provided")
+        if not phone_number:
+            raise serializers.ValidationError("No phone number provided")
 
         try:
-            user = User.objects.get(phone_number=phone_number, authorization_code=authorization_code)
+            user = User.objects.get(phone_number=phone_number)
         except User.DoesNotExist:
-            raise serializers.ValidationError("Invalid phone number or authorization code")
+            raise serializers.ValidationError("Invalid phone number")
 
         refresh = RefreshToken.for_user(user)
 
@@ -38,3 +36,9 @@ class PhoneNumberAndCodeTokenObtainPairSerializer(TokenObtainPairSerializer):
             'refresh': str(refresh),
             'access': str(refresh.access_token),
         }
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password1 = serializers.CharField(required=True)
+    new_password2 = serializers.CharField(required=True)

@@ -13,15 +13,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from users.models import User
 from users.permissions import IsVerifiedUser
-from users.serliazers import UserSerializers, PhoneNumberAndCodeTokenObtainPairSerializer
-
-
-# class UserViewSet(viewsets.ModelViewSet):
-#     """класс для вывода списка и информации по одному объекту"""
-#
-#     serializer_class = UserSerializers
-#     queryset = User.objects.all()
-#     permission_classes = [IsVerifiedUser]
+from users.serliazers import UserSerializers, PhoneNumberAndCodeTokenObtainPairSerializer, ChangePasswordSerializer
 
 
 class PhoneAuthorizationView(APIView):
@@ -48,7 +40,8 @@ class PhoneAuthorizationView(APIView):
             user.authorization_code = authorization_code
             user.save()
             return Response({"detail": "Код авторизации отправлен", "phone_number": phone_number,
-                             "authorization_code": authorization_code, "temp_email": temp_email}, status=status.HTTP_200_OK)
+                             "authorization_code": authorization_code, "temp_email": temp_email},
+                            status=status.HTTP_200_OK)
 
     def put(self, request):
         """обработка запроса на ввод кода аутентификации"""
@@ -64,9 +57,10 @@ class PhoneAuthorizationView(APIView):
             if user.authorization_code == authorization_code:  # Проверяем соответствие кода
                 # Действительный код, обозначение пользователя как авторизованного
                 user.is_authorized = True
+                user.is_authenticated = True
                 user.password = authorization_code  # сохраняем код в пароле
+                user.authorization_code = None  # удаляем код
                 user.save()
-                # login(request, user)  # Авторизуем пользователя
                 return Response({'success': 'Пользователь авторизован'}, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Недействительный код'}, status=status.HTTP_400_BAD_REQUEST)
@@ -90,19 +84,38 @@ class RefreshTokenView(APIView):
 
 
 class ChangePasswordView(APIView):
-    def post(self, request):
-        if request.user.is_anonymous:
-            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [IsAuthenticated]
 
-        form = PasswordChangeForm(request.user, request.data)
+    def post(self, request):
+        form = PasswordChangeForm(request.user, data=request.data)
         if form.is_valid():
             user = form.save()
             update_session_auth_hash(request, user)  # Обновление хэша сессии
             return Response({"detail": "Пароль успешно изменен"})
         return Response(form.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        # serializer = ChangePasswordSerializer(request.user, data=request.data)
+        # if serializer.is_valid():
+        #     user = request.user
+        #     password_data = {
+        #         'old_password': request.data.get('old_password'),
+        #         'new_password1': request.data.get('new_password1'),
+        #         'new_password2': request.data.get('new_password2')
+        #     }
+        #     form = PasswordChangeForm(request.user, data=password_data)
+        #     if form.is_valid():
+        #         user.set_password(password_data['new_password1'])
+        #         user.save()
+        #         update_session_auth_hash(request, user)
+        #         return Response({"detail": "Пароль успешно изменен"})
+        #     else:
+        #         return Response(form.errors, status=status.HTTP_400_BAD_REQUEST)
+        # else:
+        #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class UserRetrieveAPIView(UserPassesTestMixin, generics.RetrieveAPIView):
+
+class UserRetrieveAPIView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializers
     permission_classes = [IsVerifiedUser]
@@ -111,7 +124,7 @@ class UserRetrieveAPIView(UserPassesTestMixin, generics.RetrieveAPIView):
         return self.request.user.pk == self.kwargs['pk'] or self.request.user.is_superuser
 
 
-class UserUpdateAPIView(UserPassesTestMixin, generics.UpdateAPIView):
+class UserUpdateAPIView(generics.UpdateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializers
     permission_classes = [IsVerifiedUser]

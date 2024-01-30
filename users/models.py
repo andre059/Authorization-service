@@ -28,6 +28,7 @@ class User(AbstractUser):
                                     verbose_name='кто пригласил текущего пользователя')
 
     is_authorized = models.BooleanField(default=False, verbose_name='Пользователь авторизован')
+    is_authenticated = models.BooleanField(default=False, verbose_name='Пользователь аутентифицирован')
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
