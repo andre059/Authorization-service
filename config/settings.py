@@ -161,7 +161,7 @@ SIMPLE_JWT = {
 }
 
 AUTHENTICATION_BACKENDS = [
-    'users.authentication.EmailBackend',
+    'path.to.PhoneNumberBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 

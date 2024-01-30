@@ -1,7 +1,7 @@
 import random
 import uuid
 
-from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth import update_session_auth_hash, login
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.mixins import UserPassesTestMixin
 from rest_framework import viewsets, status, generics
@@ -48,7 +48,7 @@ class PhoneAuthorizationView(APIView):
             user.authorization_code = authorization_code
             user.save()
             return Response({"detail": "Код авторизации отправлен", "phone_number": phone_number,
-                             "authorization_code": authorization_code}, status=status.HTTP_200_OK)
+                             "authorization_code": authorization_code, "temp_email": temp_email}, status=status.HTTP_200_OK)
 
     def put(self, request):
         """обработка запроса на ввод кода аутентификации"""
@@ -66,6 +66,7 @@ class PhoneAuthorizationView(APIView):
                 user.is_authorized = True
                 user.password = authorization_code  # сохраняем код в пароле
                 user.save()
+                # login(request, user)  # Авторизуем пользователя
                 return Response({'success': 'Пользователь авторизован'}, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Недействительный код'}, status=status.HTTP_400_BAD_REQUEST)
@@ -90,6 +91,9 @@ class RefreshTokenView(APIView):
 
 class ChangePasswordView(APIView):
     def post(self, request):
+        if request.user.is_anonymous:
+            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
+
         form = PasswordChangeForm(request.user, request.data)
         if form.is_valid():
             user = form.save()
@@ -123,38 +127,6 @@ class UserDestroyAPIView(UserPassesTestMixin, generics.DestroyAPIView):
 
     def test_func(self):
         return self.request.user.pk == self.kwargs['pk'] or self.request.user.is_superuser
-
-
-# class UserProfile(APIView):
-#     """Предоставляет детали профиля пользователя."""
-#
-#     serializer_class = UserSerializers
-#     permission_classes = [IsAuthenticated]
-#
-#     def get(self, request, pk):
-#         """
-#         Обрабатывает GET-запрос для получения деталей профиля пользователя.
-#         Args:
-#         - request: Входной объект запроса.
-#         Returns:
-#         - Response: Ответ с деталями профиля пользователя.
-#         """
-#
-#         try:
-#             user = User.objects.get(id=pk)  # Получаем пользователя по ID
-#         except User.DoesNotExist:
-#             return Response({'error': 'Пользователь не существует'}, status=status.HTTP_404_NOT_FOUND)
-#
-#         data = {
-#             'phone_number': user.phone_number,
-#             'country': user.country,
-#             'city': user.city,
-#             'date_of_birth': user.date_of_birth,
-#             'avatar': user.avatar.url if user.avatar else None,
-#             'referral_code': user.referral_code,
-#             'is_authorized': user.is_authorized
-#         }
-#         return Response(data, status=status.HTTP_200_OK)
 
 
 class CheckReferralCode(APIView):
