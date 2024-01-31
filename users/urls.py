@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework.routers import DefaultRouter
 
 from users.apps import UsersConfig
 from users.views import (CheckReferralCode, UsersReferredByCurrentUser, PhoneAuthorizationView,
@@ -16,9 +15,9 @@ urlpatterns = [
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
 
     # generics
-    path('<int:pk>/', UserRetrieveAPIView.as_view(), name='user-retrieve'),
-    path('update/<int:pk>/', UserUpdateAPIView.as_view(), name='user-update'),
-    path('delete/<int:pk>/', UserDestroyAPIView.as_view(), name='user-delete'),
+    path('user/<int:pk>/', UserRetrieveAPIView.as_view(), name='user-retrieve'),
+    path('user/update/<int:pk>/', UserUpdateAPIView.as_view(), name='user-update'),
+    path('user/delete/<int:pk>/', UserDestroyAPIView.as_view(), name='user-delete'),
 
     # JWT
     path('phone-token/', PhoneNumberAndCodeTokenObtainPairView.as_view(), name='token_obtain_pair'),

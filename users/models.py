@@ -30,7 +30,7 @@ class User(AbstractUser):
     is_authorized = models.BooleanField(default=False, verbose_name='Пользователь авторизован')
     is_authenticated = models.BooleanField(default=False, verbose_name='Пользователь аутентифицирован')
 
-    USERNAME_FIELD = "email"
+    USERNAME_FIELD = "phone_number"
     REQUIRED_FIELDS = []
 
     def __str__(self):

@@ -1,11 +1,13 @@
 import random
 import uuid
 
-from django.contrib.auth import update_session_auth_hash, login
-from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.hashers import check_password
 from django.contrib.auth.mixins import UserPassesTestMixin
-from rest_framework import viewsets, status, generics
+
+from rest_framework import status, generics
 from rest_framework.authtoken.models import Token
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -58,7 +60,7 @@ class PhoneAuthorizationView(APIView):
                 # Действительный код, обозначение пользователя как авторизованного
                 user.is_authorized = True
                 user.is_authenticated = True
-                user.password = authorization_code  # сохраняем код в пароле
+                user.set_password(authorization_code)  # сохраняем код в пароле
                 user.authorization_code = None  # удаляем код
                 user.save()
                 return Response({'success': 'Пользователь авторизован'}, status=status.HTTP_200_OK)
@@ -84,35 +86,32 @@ class RefreshTokenView(APIView):
 
 
 class ChangePasswordView(APIView):
+    """Смена пароля"""
+
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        form = PasswordChangeForm(request.user, data=request.data)
-        if form.is_valid():
-            user = form.save()
-            update_session_auth_hash(request, user)  # Обновление хэша сессии
-            return Response({"detail": "Пароль успешно изменен"})
-        return Response(form.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # serializer = ChangePasswordSerializer(request.user, data=request.data)
-        # if serializer.is_valid():
-        #     user = request.user
-        #     password_data = {
-        #         'old_password': request.data.get('old_password'),
-        #         'new_password1': request.data.get('new_password1'),
-        #         'new_password2': request.data.get('new_password2')
-        #     }
-        #     form = PasswordChangeForm(request.user, data=password_data)
-        #     if form.is_valid():
-        #         user.set_password(password_data['new_password1'])
-        #         user.save()
-        #         update_session_auth_hash(request, user)
-        #         return Response({"detail": "Пароль успешно изменен"})
-        #     else:
-        #         return Response(form.errors, status=status.HTTP_400_BAD_REQUEST)
-        # else:
-        #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password1 = request.data.get('new_password1')
+        new_password2 = request.data.get('new_password2')
+
+        if not all([old_password, new_password1, new_password2]):
+            raise ValidationError("Заполните все необходимые поля.")
+
+        if not check_password(old_password, user.password):
+            raise ValidationError("Ваш старый пароль введен неправильно. Пожалуйста, введите его снова.")
+
+        if new_password1 != new_password2:
+            raise ValidationError("Новые пароли не совпадают.")
+
+        user.set_password(new_password1)
+        user.save()
+        update_session_auth_hash(request, user)  # Обновление хэша сессии
+
+        return Response({"detail": "Пароль успешно изменен"})
 
 
 class UserRetrieveAPIView(generics.RetrieveAPIView):
@@ -184,5 +183,6 @@ class UsersReferredByCurrentUser(APIView):
 
         user = request.user
         referred_users = User.objects.filter(referred_by=user)
-        data = [{'username': user.username, 'id': user.id} for user in referred_users]
+        data = [{'first_name': user.first_name, 'last_name': user.last_name, 'email': user.email, 'id': user.id} for
+                user in referred_users]
         return Response(data, status=status.HTTP_200_OK)

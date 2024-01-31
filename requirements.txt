@@ -9,3 +9,4 @@ utils~=1.0.2
 redis
 djangorestframework-simplejwt
 django_filter
+bcrypt
