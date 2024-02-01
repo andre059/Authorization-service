@@ -20,7 +20,54 @@
 
 ### *Api для всего функционала* 
 
-чуть позже
+1. POST localhost:8000/users/phone-authorization/ - Запрос кода авторизации по номеру телефона
+    {
+    "phone_number": Ваш номер
+    }
+
+2. PUT localhost:8000/users/phone-authorization/ - Авторизация по номеру телефона и присланному коду
+    {
+    "phone_number": ваш номер,
+    "authorization_code": ваш код авторизации
+    }
+
+3. POST localhost:8000/users/phone-token/ - Получение access токена 
+
+    {
+    "password": Ваш временный пароль он же код авторизации,
+    "phone_number": ваш номер
+    }
+
+4. POST localhost:8000/users/change-password/ - Смена временного пароля 
+    *В следующих запросах, незабываем вводить access токен в Authorization и перед токеном вводить bearer*
+
+    {
+    "old_password": "Старый пароль",
+    "new_password1": "Новый пароль",
+    "new_password2": "Новый пароль"
+    }
+
+5. GET localhost:8000/users/user/id/ - просмотр своего профиля 
+
+6. PATCH localhost:8000/users/user/update/id/ - Редактирование своего профиля 
+
+    {
+    "email": "Ваша почта",
+    "first_name": "Имя",
+    "last_name": "Фамилия",
+    "country": "Страна",
+    "city": "Город",
+    "date_of_birth": Дата рождения в формате "ГГГГ-ММ-ДД",
+    "avatar": Ваше фото
+    }
+
+7. POST localhost:8000/users/check-referral/ - Вводим referral_code который вам дал зарегистрированный пользователь
+
+    {
+    "referral_code": "Код который вам предоставили"
+    }
+
+8. GET localhost:8000/users/referred-users/ - Заходим зарегистрированным пользователем и просматриваем кто ввёл ваш реферальный код 
 
 ### *Установка*
 
@@ -49,8 +96,11 @@
     
     - *CSU_SET_PASSWORD = 'Пароль для файла csu.py*
 
-7. Запустите проект: 
+7. Можете создать суперпользователя:
+    python manage.py CSU
+
+8. Запустите проект: 
     python manage.py runserver
 
-8. Доступ к веб-интерфейсу: 
+9. Доступ к веб-интерфейсу: 
     Откройте браузер и перейдите по адресу http://localhost:8000/admin
