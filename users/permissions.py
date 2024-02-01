@@ -20,4 +20,3 @@ class IsVerifiedUser(BasePermission):
         elif request.user.is_authorized:
             return True
         raise PermissionDenied("Пользователь не авторизован или не прошел проверку верификации")
-
