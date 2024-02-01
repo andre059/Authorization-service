@@ -88,24 +88,15 @@ class RefreshTokenView(APIView):
 class ChangePasswordView(APIView):
     """Смена пароля"""
 
-    serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
 
+        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
         user = request.user
-        old_password = request.data.get('old_password')
-        new_password1 = request.data.get('new_password1')
-        new_password2 = request.data.get('new_password2')
-
-        if not all([old_password, new_password1, new_password2]):
-            raise ValidationError("Заполните все необходимые поля.")
-
-        if not check_password(old_password, user.password):
-            raise ValidationError("Ваш старый пароль введен неправильно. Пожалуйста, введите его снова.")
-
-        if new_password1 != new_password2:
-            raise ValidationError("Новые пароли не совпадают.")
+        new_password1 = serializer.validated_data['new_password1']
 
         user.set_password(new_password1)
         user.save()

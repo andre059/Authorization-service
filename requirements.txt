@@ -10,3 +10,4 @@ redis
 djangorestframework-simplejwt
 django_filter
 bcrypt
+flake8

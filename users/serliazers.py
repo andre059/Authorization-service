@@ -6,15 +6,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.models import User
 
-
 User = get_user_model()
 
 
 class UserSerializers(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['email', 'phone_number', 'password', 'country', 'city', 'is_active', 'date_of_birth', 'avatar',
-                  'authorization_code', 'referral_code', 'referred_by', 'is_authorized', 'is_authenticated']
+        fields = ['email', 'phone_number', 'password', 'first_name', 'last_name', 'country', 'city', 'is_active',
+                  'date_of_birth', 'avatar', 'referral_code', 'referred_by', 'is_authorized', 'is_authenticated']
 
 
 class PhoneNumberAndCodeTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -49,3 +48,15 @@ class ChangePasswordSerializer(serializers.Serializer):
         if not check_password(value, user.password):
             raise serializers.ValidationError('Ваш старый пароль введен неправильно. Пожалуйста, введите его снова.')
         return value
+
+    def validate(self, data):
+        if not all(data.values()):
+            raise serializers.ValidationError("Заполните все обязательные поля.")
+
+        new_password1 = data.get('new_password1')
+        new_password2 = data.get('new_password2')
+
+        if new_password1 != new_password2:
+            raise serializers.ValidationError("Новые пароли не совпадают.")
+
+        return data
