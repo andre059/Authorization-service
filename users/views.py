@@ -34,7 +34,8 @@ class PhoneAuthorizationView(APIView):
                 user.authorization_code = authorization_code
                 user.save()
                 return Response({"detail": "Код авторизации отправлен", "phone_number": phone_number,
-                                 "authorization_code": authorization_code}, status=status.HTTP_200_OK)
+                                 "authorization_code": authorization_code, "user_id": user.id},
+                                status=status.HTTP_200_OK)
         except User.DoesNotExist:  # Пользователь новый
             temp_email = f"{phone_number}-{uuid.uuid4()}@temp.com"  # временная почта
             user = User(phone_number=phone_number, email=temp_email)
@@ -42,7 +43,7 @@ class PhoneAuthorizationView(APIView):
             user.authorization_code = authorization_code
             user.save()
             return Response({"detail": "Код авторизации отправлен", "phone_number": phone_number,
-                             "authorization_code": authorization_code, "temp_email": temp_email},
+                             "authorization_code": authorization_code, "user_id": user.id},
                             status=status.HTTP_200_OK)
 
     def put(self, request):
@@ -91,7 +92,6 @@ class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-
         serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
@@ -119,11 +119,46 @@ class UserUpdateAPIView(generics.UpdateAPIView):
     serializer_class = UserSerializers
     permission_classes = [IsVerifiedUser]
 
+    def get_object(self):
+        """получения объекта"""
+
+        return self.request.user
+
+    def get_allowed_fields(self):
+        """возвращает список полей, которые пользователь может обновлять в зависимости от его роли"""
+
+        if self.request.user.is_superuser:
+            return ['email', 'phone_number', 'first_name', 'last_name', 'country', 'city', 'date_of_birth',
+                    'avatar']  # разрешаем изменение всех полей для суперпользователя
+        else:
+            return ['email', 'first_name',
+                    'last_name', 'country', 'city', 'date_of_birth',
+                    'avatar']  # разрешаем изменение только этих полей для обычного пользователя
+
+    def partial_update(self, request, *args, **kwargs):
+        """Обрабатывает частичное обновление пользователя, разрешения изменения определенных полей"""
+
+        instance = self.get_object()
+        allowed_fields = self.get_allowed_fields()
+        data = request.data
+
+        # Проверяем, есть ли в запросе поля, которые не разрешены пользователю
+        disallowed_fields = [k for k in data.keys() if k not in allowed_fields]
+        if disallowed_fields:
+            message = f"Вы не можете изменять следующие поля: {', '.join(disallowed_fields)}"
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
+
+        # data = {k: v for k, v in request.data.items() if k in allowed_fields}
+        serializer = self.get_serializer(instance, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
     def test_func(self):
         return self.request.user.pk == self.kwargs['pk'] or self.request.user.is_superuser
 
 
-class UserDestroyAPIView(UserPassesTestMixin, generics.DestroyAPIView):
+class UserDestroyAPIView(generics.DestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializers
     permission_classes = [IsVerifiedUser]
