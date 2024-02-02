@@ -2,19 +2,16 @@ import random
 import uuid
 
 from django.contrib.auth import update_session_auth_hash
-from django.contrib.auth.hashers import check_password
-from django.contrib.auth.mixins import UserPassesTestMixin
 
 from rest_framework import status, generics
 from rest_framework.authtoken.models import Token
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from users.models import User
-from users.permissions import IsVerifiedUser
+from users.permissions import IsVerifiedUser, IsOwnerOrReadOnly
 from users.serliazers import UserSerializers, PhoneNumberAndCodeTokenObtainPairSerializer, ChangePasswordSerializer
 
 
@@ -108,16 +105,13 @@ class ChangePasswordView(APIView):
 class UserRetrieveAPIView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializers
-    permission_classes = [IsVerifiedUser]
-
-    def test_func(self):
-        return self.request.user.pk == self.kwargs['pk'] or self.request.user.is_superuser
+    permission_classes = [IsVerifiedUser, IsOwnerOrReadOnly]
 
 
 class UserUpdateAPIView(generics.UpdateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializers
-    permission_classes = [IsVerifiedUser]
+    permission_classes = [IsVerifiedUser, IsOwnerOrReadOnly]
 
     def get_object(self):
         """получения объекта"""
@@ -148,23 +142,16 @@ class UserUpdateAPIView(generics.UpdateAPIView):
             message = f"Вы не можете изменять следующие поля: {', '.join(disallowed_fields)}"
             return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
 
-        # data = {k: v for k, v in request.data.items() if k in allowed_fields}
         serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
 
-    def test_func(self):
-        return self.request.user.pk == self.kwargs['pk'] or self.request.user.is_superuser
-
 
 class UserDestroyAPIView(generics.DestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializers
-    permission_classes = [IsVerifiedUser]
-
-    def test_func(self):
-        return self.request.user.pk == self.kwargs['pk'] or self.request.user.is_superuser
+    permission_classes = [IsVerifiedUser, IsOwnerOrReadOnly]
 
 
 class CheckReferralCode(APIView):
