@@ -1,4 +1,5 @@
 import random
+import time
 import uuid
 
 from django.contrib.auth import update_session_auth_hash
@@ -30,6 +31,7 @@ class PhoneAuthorizationView(APIView):
                 authorization_code = ''.join(random.choices('0123456789', k=4))
                 user.authorization_code = authorization_code
                 user.save()
+                time.sleep(3)
                 return Response({"detail": "Код авторизации отправлен", "phone_number": phone_number,
                                  "authorization_code": authorization_code, "user_id": user.id},
                                 status=status.HTTP_200_OK)
@@ -39,6 +41,7 @@ class PhoneAuthorizationView(APIView):
             authorization_code = ''.join(random.choices('0123456789', k=4))
             user.authorization_code = authorization_code
             user.save()
+            time.sleep(3)
             return Response({"detail": "Код авторизации отправлен", "phone_number": phone_number,
                              "authorization_code": authorization_code, "user_id": user.id},
                             status=status.HTTP_200_OK)
