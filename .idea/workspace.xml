@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8256692f-214c-469f-877d-5e22edbda9d0" name="Changes" comment="работает">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/users/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/users/views.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -196,7 +197,7 @@
       <workItem from="1706949896740" duration="1353000" />
       <workItem from="1706951271460" duration="6331000" />
       <workItem from="1707125989426" duration="7528000" />
-      <workItem from="1707153597070" duration="1746000" />
+      <workItem from="1707153597070" duration="2461000" />
     </task>
     <task id="LOCAL-00001" summary="добавил users и внес настройкив settings">
       <option name="closed" value="true" />
