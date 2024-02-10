@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
-    'django_createsuperuserwithpassword',
+    # 'django_createsuperuserwithpassword',
     'rest_framework_simplejwt',
     'django_filters',
     'rest_framework.authtoken',
@@ -92,7 +92,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DATABASES_NAME'),
         'USER': os.getenv('DATABASES_USER'),
-        'PASSWORD': os.getenv('DATABASES_PASSWORD'),
+        # 'PASSWORD': os.getenv('DATABASES_PASSWORD'),
     }
 }
 
