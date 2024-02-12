@@ -89,8 +89,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'thesis_project',  # os.getenv('DATABASES_NAME'),
-        'USER': 'postgres',  # os.getenv('DATABASES_USER'),
+        'NAME': os.getenv('DATABASES_NAME'),
+        'USER': os.getenv('DATABASES_USER'),
         # 'PASSWORD': os.getenv('DATABASES_PASSWORD'),
     }
 }
